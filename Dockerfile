@@ -5,10 +5,10 @@ FROM node:20-alpine AS node-builder
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY package.json package-lock.json ./
 
-# Install Node dependencies
-RUN npm ci --only=production
+# Install all dependencies (including devDependencies for building)
+RUN npm install
 
 # Copy application source
 COPY . .
@@ -22,7 +22,7 @@ FROM composer:2.7 AS composer-builder
 WORKDIR /app
 
 # Copy composer files
-COPY composer*.json ./
+COPY composer.json composer.lock ./
 
 # Install PHP dependencies (production only)
 RUN composer install \
@@ -47,15 +47,22 @@ RUN apk add --no-cache \
     supervisor \
     mysql-client \
     postgresql-client \
+    libpng \
+    libjpeg-turbo \
+    libwebp \
+    freetype \
+    zip \
+    libzip \
+    oniguruma \
+    icu-libs \
+    bash \
     libpng-dev \
     libjpeg-turbo-dev \
     libwebp-dev \
     freetype-dev \
-    zip \
     libzip-dev \
     oniguruma-dev \
     icu-dev \
-    bash \
     && docker-php-ext-configure gd \
         --with-freetype \
         --with-jpeg \

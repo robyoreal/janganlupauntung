@@ -30,8 +30,6 @@ Thumbs.db
 *.swp
 *.swo
 *~
-composer.lock
-package-lock.json
 phpunit.xml
 vite.config.js
 Homestead.json
