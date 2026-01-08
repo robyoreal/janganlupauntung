@@ -89,6 +89,39 @@ php artisan serve
 
 The application will be available at `http://localhost:8000`
 
+## Deployment
+
+### Docker Deployment
+
+This application can be deployed using Docker and Docker Compose. A complete Docker setup is provided with:
+
+- **Multi-stage Dockerfile** with PHP 8.2-FPM and Node.js for asset compilation
+- **docker-compose.yml** for local development with MySQL
+- **Production-ready configuration** with Nginx, Supervisor, and queue workers
+- **Automatic database migrations** and cache optimization on startup
+
+**Quick start with Docker Compose:**
+```bash
+docker-compose up -d
+```
+
+The application will be available at `http://localhost:8000`
+
+### Railway.app Deployment
+
+Deploy to Railway.app with one click or follow the comprehensive guide:
+
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template)
+
+**For detailed deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md)**
+
+The deployment guide includes:
+- Step-by-step Railway.app deployment
+- Environment variable configuration
+- Database setup (MySQL/PostgreSQL)
+- Troubleshooting guide
+- Production best practices
+
 ## Usage
 
 ### Getting Started
