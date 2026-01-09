@@ -1,4 +1,4 @@
-FROM node:22-alpine
+FROM php:8.2-fpm
 
 # Install dependencies
 RUN apk add --no-cache \
