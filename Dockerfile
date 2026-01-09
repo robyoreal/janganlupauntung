@@ -14,7 +14,7 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
 
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
-COPY .  .
+COPY .  . 
 
 RUN mkdir -p storage/logs storage/app storage/framework/{cache,sessions,views}
 
