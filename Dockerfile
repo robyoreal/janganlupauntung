@@ -1,66 +1,46 @@
-# Stage 1: Build Vite frontend assets
-FROM node:20-alpine AS vite-builder
+FROM node:20
 
 WORKDIR /app
 
+# Install PHP and necessary extensions
+RUN apt-get update && apt-get install -y \
+    php8.2 \
+    php8.2-cli \
+    php8.2-fpm \
+    php8.2-mbstring \
+    php8.2-xml \
+    php8.2-curl \
+    php8.2-zip \
+    php8.2-pdo \
+    php8.2-pdo-mysql \
+    php8.2-json \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create storage directories
+RUN mkdir -p storage/logs storage/app storage/framework/cache storage/framework/sessions storage/framework/views \
+    && chmod -R 775 storage bootstrap/cache
+
 # Copy package files
 COPY package*.json ./
+COPY composer.json composer.lock ./
 
-# Install dependencies
+# Install Node dependencies
 RUN npm ci
-
-# Copy frontend source files
-COPY . .
 
 # Build Vite assets
 RUN npm run build
 
-# Stage 2: PHP Application
-FROM php:8.2-fpm-alpine
-
-WORKDIR /var/www/html
-
-# Install system dependencies
-RUN apk add --no-cache \
-    curl \
-    git \
-    unzip \
-    libpng-dev \
-    libjpeg-turbo-dev \
-    freetype-dev \
-    zip \
-    oniguruma-dev
-
-# Install PHP extensions
-RUN docker-php-ext-install \
-    pdo \
-    pdo_mysql \
-    gd \
-    mbstring \
-    exif \
-    pcntl
-
-# Install Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+# Install PHP dependencies
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer \
+    && composer install --no-dev --optimize-autoloader
 
 # Copy application files
 COPY . .
 
-# Copy built Vite assets from builder stage
-COPY --from=vite-builder /app/dist ./public/dist
+# Set proper permissions
+RUN chown -R www-data:www-data /app \
+    && chmod -R 755 storage bootstrap/cache
 
-# Set permissions
-RUN chown -R www-data:www-data /var/www/html && \
-    chmod -R 755 /var/www/html
+EXPOSE 8000 9000
 
-# Install PHP dependencies
-RUN composer install --no-dev --optimize-autoloader
-
-# Expose port for PHP-FPM
-EXPOSE 9000
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:9000/ping || exit 1
-
-CMD ["php-fpm"]
+CMD ["php", "-S", "0.0.0.0:8000", "-t", "public"]
