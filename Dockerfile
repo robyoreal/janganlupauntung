@@ -1,59 +1,59 @@
-# Use official PHP image as base
-FROM php:8.2-fpm
+# Build stage for Vite assets
+FROM node:18-alpine AS vite-builder
+WORKDIR /app
 
-# Set working directory
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy source code
+COPY . .
+
+# Build Vite assets
+RUN npm run build
+
+# PHP-FPM application stage
+FROM php:8.2-fpm-alpine
+
 WORKDIR /app
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y \
+RUN apk add --no-cache \
     curl \
     git \
     unzip \
-    libpq-dev \
-    libfreetype6-dev \
-    libjpeg62-turbo-dev \
+    postgresql-client \
     libpng-dev \
-    libwebp-dev \
-    && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
-    && docker-php-ext-install -j$(nproc) gd pdo pdo_pgsql \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Node.js for Vite asset building
-RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
-    && apt-get install -y nodejs \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    jpeg-dev \
+    freetype-dev \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j$(nproc) gd pdo pdo_pgsql bcmath \
+    && rm -rf /var/cache/apk/*
 
 # Install Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 # Copy application files
 COPY . .
 
-# Create necessary storage directories
-RUN mkdir -p storage/logs \
-    && mkdir -p storage/app \
-    && mkdir -p storage/framework/cache \
-    && mkdir -p storage/framework/sessions \
-    && mkdir -p storage/framework/views \
-    && chmod -R 775 storage bootstrap/cache
+# Copy built Vite assets from builder stage
+COPY --from=vite-builder /app/public/build ./public/build
 
 # Install PHP dependencies
-RUN composer install --no-interaction --no-dev --optimize-autoloader
+RUN composer install --no-dev --optimize-autoloader
 
-# Install Node dependencies
-RUN npm install
+# Set proper permissions
+RUN chown -R www-data:www-data /app \
+    && chmod -R 755 /app \
+    && chmod -R 775 /app/storage /app/bootstrap/cache
 
-# Set environment file if not exists
-RUN if [ ! -f .env ]; then cp .env.example .env; fi
-
-# Generate application key (will be done at runtime if needed)
-# Skip Vite asset build in Docker - it will happen on first run
-# RUN npm run build
-
-# Expose port
+# Expose PHP-FPM port
 EXPOSE 9000
 
-# Start PHP-FPM
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:9000/ping || exit 1
+
 CMD ["php-fpm"]
