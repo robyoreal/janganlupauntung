@@ -1,13 +1,10 @@
-# Use official PHP-FPM image as base
-FROM php:8.1-fpm
+FROM php:8.2-fpm
 
-# Install system dependencies
+# Install nginx and other dependencies
 RUN apt-get update && apt-get install -y \
     nginx \
-    supervisor \
     curl \
     git \
-    zip \
     unzip \
     && rm -rf /var/lib/apt/lists/*
 
@@ -17,31 +14,34 @@ RUN docker-php-ext-install \
     pdo_mysql \
     mysqli
 
-# Copy PHP configuration
-COPY php.ini /usr/local/etc/php/
-COPY www.conf /usr/local/etc/php-fpm.d/www.conf
-
-# Configure Nginx
+# Copy nginx configuration
 COPY nginx.conf /etc/nginx/nginx.conf
-COPY default.conf /etc/nginx/sites-available/default
-
-# Enable Nginx site
-RUN ln -sf /etc/nginx/sites-available/default /etc/nginx/sites-enabled/default
-
-# Create required directories
-RUN mkdir -p /var/run/php-fpm /var/log/supervisor /var/www/html
 
 # Copy application code
-COPY . /var/www/html
+COPY . /var/www/html/
 
-# Set permissions
-RUN chown -R www-data:www-data /var/www/html
+# Set working directory
+WORKDIR /var/www/html
 
-# Copy supervisor configuration
-COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+# Create startup script
+RUN mkdir -p /usr/local/bin && \
+    echo '#!/bin/bash\n\
+set -e\n\
+\n\
+# Start PHP-FPM in background\n\
+php-fpm &\n\
+PHP_PID=$!\n\
+\n\
+# Start nginx in foreground\n\
+nginx -g "daemon off;"\n\
+\n\
+# Wait for both processes\n\
+wait $PHP_PID\n\
+' > /usr/local/bin/start.sh && \
+    chmod +x /usr/local/bin/start.sh
 
-# Expose port 80
+# Expose port 80 for HTTP
 EXPOSE 80
 
-# Start supervisor to manage both PHP-FPM and Nginx
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+# Run startup script
+CMD ["/usr/local/bin/start.sh"]
