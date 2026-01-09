@@ -25,4 +25,4 @@ COPY . .
 EXPOSE 3000
 
 # Start application
-CMD ["npm", "start"]
+CMD ["php", "artisan", "serve", "--host=0.0.0.0"]
