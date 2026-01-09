@@ -1,13 +1,5 @@
 [build]
-builder = "dockerfile"
+builder = "DOCKERFILE"
 
-[build.config]
-dockerfile = "Dockerfile"
-
-[[services]]
-name = "php-fpm"
-startCommand = "php-fpm"
-
-[[services]]
-name = "nginx"
-startCommand = "nginx -g 'daemon off;'"
+[deploy]
+startCommand = "php artisan serve --host=0.0.0.0 --port=8000"
