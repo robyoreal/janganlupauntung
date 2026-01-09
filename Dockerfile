@@ -1,20 +1,28 @@
-# Use official Node.js runtime as base image
-FROM node:18-alpine
+FROM node:22-alpine
+
+# Install dependencies
+RUN apk add --no-cache \
+    curl \
+    git \
+    python3 \
+    make \
+    g++ \
+    bash
 
 # Set working directory
 WORKDIR /app
 
-# Copy package.json and package-lock.json
+# Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install
+# Install npm dependencies
+RUN npm ci
 
-# Copy the rest of the application code
+# Copy application files
 COPY . .
 
 # Expose port
 EXPOSE 3000
 
-# Start the application - Vite will compile assets at runtime
-CMD ["npm", "run", "dev"]
+# Start application
+CMD ["npm", "start"]
