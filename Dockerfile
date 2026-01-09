@@ -1,28 +1,47 @@
-FROM php:8.2-fpm
+# Use official PHP-FPM image as base
+FROM php:8.1-fpm
 
-WORKDIR /var/www/html
-
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
-    git curl unzip libpng-dev libjpeg-dev libfreetype6-dev libonig-dev \
+    nginx \
+    supervisor \
+    curl \
+    git \
+    zip \
+    unzip \
     && rm -rf /var/lib/apt/lists/*
 
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs && rm -rf /var/lib/apt/lists/*
+# Install PHP extensions
+RUN docker-php-ext-install \
+    pdo \
+    pdo_mysql \
+    mysqli
 
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install -j$(nproc) gd pdo pdo_mysql mbstring exif pcntl
+# Copy PHP configuration
+COPY php.ini /usr/local/etc/php/
+COPY www.conf /usr/local/etc/php-fpm.d/www.conf
 
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+# Configure Nginx
+COPY nginx.conf /etc/nginx/nginx.conf
+COPY default.conf /etc/nginx/sites-available/default
 
-COPY .  . 
+# Enable Nginx site
+RUN ln -sf /etc/nginx/sites-available/default /etc/nginx/sites-enabled/default
 
-RUN mkdir -p storage/logs storage/app storage/framework/{cache,sessions,views}
+# Create required directories
+RUN mkdir -p /var/run/php-fpm /var/log/supervisor /var/www/html
 
-RUN composer install --no-dev --optimize-autoloader
-RUN npm ci
+# Copy application code
+COPY . /var/www/html
 
-RUN chown -R www-data:www-data /var/www/html && chmod -R 755 storage bootstrap/cache
+# Set permissions
+RUN chown -R www-data:www-data /var/www/html
 
-EXPOSE 9000
+# Copy supervisor configuration
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-CMD ["php-fpm"]
+# Expose port 80
+EXPOSE 80
+
+# Start supervisor to manage both PHP-FPM and Nginx
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
