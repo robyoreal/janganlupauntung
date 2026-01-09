@@ -23,6 +23,8 @@ RUN npm ci
 
 RUN chown -R www-data:www-data /var/www/html && chmod -R 755 storage bootstrap/cache
 
+RUN npm run build
+
 EXPOSE 8000
 
 CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
