@@ -3,7 +3,7 @@ FROM php:8.2-fpm
 WORKDIR /var/www/html
 
 RUN apt-get update && apt-get install -y \
-    git curl unzip libpng-dev libjpeg-dev libfreetype6-dev libonig-dev \
+    git curl unzip libpng-dev libpq-dev gcc libjpeg-dev libfreetype6-dev libonig-dev \
     && rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
