@@ -31,7 +31,6 @@ Thumbs.db
 *.swo
 *~
 phpunit.xml
-vite.config.js
 Homestead.json
 Homestead.yaml
 /.fleet
