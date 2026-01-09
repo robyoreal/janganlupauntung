@@ -15,7 +15,7 @@
         <div class="container mx-auto px-4">
             <div class="flex items-center justify-between h-16">
                 <div class="flex items-center space-x-4">
-                    <a href="/" class="text-xl font-bold">Jangan Lupa Untung</a>
+                    <a href="/" class="text-xl font-bold">{{ config('app.name', 'Jangan Lupa Untung') }}</a>
                 </div>
                 <div class="flex space-x-2 overflow-x-auto">
                     <a href="/" class="px-3 py-2 rounded hover:bg-blue-700 whitespace-nowrap text-sm">Dashboard</a>
