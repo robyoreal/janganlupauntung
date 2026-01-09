@@ -1,28 +1,28 @@
 FROM php:8.2-fpm
 
-# Install dependencies
-RUN apk add --no-cache \
-    curl \
-    git \
-    python3 \
-    make \
-    g++ \
-    bash
+WORKDIR /var/www/html
 
-# Set working directory
-WORKDIR /app
+RUN apt-get update && apt-get install -y \
+    git curl unzip libpng-dev libjpeg-dev libfreetype6-dev libonig-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy package files
-COPY package*.json ./
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs && rm -rf /var/lib/apt/lists/*
 
-# Install npm dependencies
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j$(nproc) gd pdo pdo_pgsql mbstring exif pcntl
+
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+COPY .  . 
+
+RUN mkdir -p storage/logs storage/app storage/framework/cache storage/framework/sessions storage/framework/views
+
+RUN composer install --no-dev --optimize-autoloader
 RUN npm ci
 
-# Copy application files
-COPY . .
+RUN chown -R www-data:www-data /var/www/html && chmod -R 755 storage bootstrap/cache
 
-# Expose port
-EXPOSE 3000
+EXPOSE 8000
 
-# Start application
-CMD ["php", "artisan", "serve", "--host=0.0.0.0"]
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
