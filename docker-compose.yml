@@ -1,60 +1,76 @@
 version: '3.8'
 
 services:
-  app:
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres_db
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-janganlupauntung}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app_network
+
+  php-fpm:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: janganlupauntung-app
-    restart: unless-stopped
-    working_dir: /var/www/html
-    ports:
-      - "8000:80"
-    environment:
-      - APP_ENV=local
-      - APP_DEBUG=true
-      - DB_CONNECTION=mysql
-      - DB_HOST=db
-      - DB_PORT=3306
-      - DB_DATABASE=janganlupauntung
-      - DB_USERNAME=laravel
-      - DB_PASSWORD=secret
-      - CACHE_STORE=database
-      - QUEUE_CONNECTION=database
-      - SESSION_DRIVER=database
-    volumes:
-      - ./storage:/var/www/html/storage
-      - ./bootstrap/cache:/var/www/html/bootstrap/cache
+    container_name: php_fpm
     depends_on:
-      db:
+      postgres:
         condition: service_healthy
-    networks:
-      - janganlupauntung-network
-
-  db:
-    image: mysql:8.0
-    container_name: janganlupauntung-db
-    restart: unless-stopped
     environment:
-      - MYSQL_DATABASE=janganlupauntung
-      - MYSQL_USER=laravel
-      - MYSQL_PASSWORD=secret
-      - MYSQL_ROOT_PASSWORD=root_secret
-    ports:
-      - "3306:3306"
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_NAME: ${DB_NAME:-janganlupauntung}
+      APP_ENV: ${APP_ENV:-production}
+      APP_DEBUG: ${APP_DEBUG:-false}
+      APP_KEY: ${APP_KEY}
     volumes:
-      - dbdata:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      timeout: 20s
-      retries: 10
+      - ./:/app
+    ports:
+      - "9000:9000"
     networks:
-      - janganlupauntung-network
+      - app_network
 
-networks:
-  janganlupauntung-network:
-    driver: bridge
+  nginx:
+    image: nginx:alpine
+    container_name: nginx_web
+    depends_on:
+      - php-fpm
+    ports:
+      - "${PORT:-80}:80"
+      - "443:443"
+    volumes:
+      - ./:/app
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/ssl:/etc/nginx/ssl
+    environment:
+      NGINX_HOST: ${NGINX_HOST:-localhost}
+      NGINX_PORT: ${PORT:-80}
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
-  dbdata:
+  postgres_data:
     driver: local
+
+networks:
+  app_network:
+    driver: bridge
