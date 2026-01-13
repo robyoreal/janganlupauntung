@@ -8,6 +8,8 @@ use App\Livewire\Customers\Index as CustomersIndex;
 use App\Livewire\SalesForce\Index as SalesForceIndex;
 use App\Livewire\Transactions\Buy;
 use App\Livewire\Transactions\Sell;
+use App\Livewire\Transactions\Tagihan;
+use App\Livewire\Transactions\Faktur;
 
 Route::get('/', Dashboard::class)->name('dashboard');
 Route::get('/products', ProductsIndex::class)->name('products.index');
@@ -16,3 +18,5 @@ Route::get('/customers', CustomersIndex::class)->name('customers.index');
 Route::get('/salesforce', SalesForceIndex::class)->name('salesforce.index');
 Route::get('/buy', Buy::class)->name('transactions.buy');
 Route::get('/sell', Sell::class)->name('transactions.sell');
+Route::get('/tagihan', Tagihan::class)->name('transactions.tagihan');
+Route::get('/faktur', Faktur::class)->name('transactions.faktur');

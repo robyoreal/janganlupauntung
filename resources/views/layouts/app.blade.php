@@ -22,6 +22,8 @@
                     <a href="/products" class="px-3 py-2 rounded hover:bg-blue-700 whitespace-nowrap text-sm">Products</a>
                     <a href="/buy" class="px-3 py-2 rounded hover:bg-blue-700 whitespace-nowrap text-sm">Buy</a>
                     <a href="/sell" class="px-3 py-2 rounded hover:bg-blue-700 whitespace-nowrap text-sm">Sell</a>
+                    <a href="/tagihan" class="px-3 py-2 rounded hover:bg-blue-700 whitespace-nowrap text-sm">Tagihan</a>
+                    <a href="/faktur" class="px-3 py-2 rounded hover:bg-blue-700 whitespace-nowrap text-sm">Faktur</a>
                     <a href="/suppliers" class="px-3 py-2 rounded hover:bg-blue-700 whitespace-nowrap text-sm">Suppliers</a>
                     <a href="/customers" class="px-3 py-2 rounded hover:bg-blue-700 whitespace-nowrap text-sm">Customers</a>
                     <a href="/salesforce" class="px-3 py-2 rounded hover:bg-blue-700 whitespace-nowrap text-sm">Sales</a>
