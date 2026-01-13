@@ -235,6 +235,6 @@ class Tagihan extends Component
             'transactions' => $transactions,
             'products' => $products,
             'suppliers' => $suppliers,
-        ]);
+        ])->layout('layouts.app');
     }
 }

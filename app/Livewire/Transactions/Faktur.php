@@ -226,6 +226,6 @@ class Faktur extends Component
             'products' => $products,
             'customers' => $customers,
             'salesForce' => $salesForce,
-        ]);
+        ])->layout('layouts.app');
     }
 }
