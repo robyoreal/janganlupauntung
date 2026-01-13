@@ -4,17 +4,15 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Transaction extends Model
 {
     protected $fillable = [
         'type',
-        'product_id',
         'supplier_id',
         'customer_id',
         'sales_id',
-        'quantity',
-        'price',
         'total',
         'payment_status',
         'transaction_date',
@@ -22,15 +20,13 @@ class Transaction extends Model
     ];
 
     protected $casts = [
-        'price' => 'decimal:2',
         'total' => 'decimal:2',
-        'quantity' => 'integer',
         'transaction_date' => 'date',
     ];
 
-    public function product(): BelongsTo
+    public function items(): HasMany
     {
-        return $this->belongsTo(Product::class);
+        return $this->hasMany(TransactionItem::class);
     }
 
     public function supplier(): BelongsTo

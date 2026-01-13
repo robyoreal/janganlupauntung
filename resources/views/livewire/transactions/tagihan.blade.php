@@ -46,7 +46,7 @@
             </div>
         </div>
         <div class="mt-4">
-            <button wire:click="clearFilters" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg">
+            <button wire:click="clearFilters" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg min-h-[44px]">
                 Reset Filter
             </button>
         </div>
@@ -59,10 +59,8 @@
                 <thead class="bg-gray-50">
                     <tr>
                         <th class="text-left py-3 px-4 font-semibold text-gray-700">Tanggal</th>
-                        <th class="text-left py-3 px-4 font-semibold text-gray-700">Produk</th>
+                        <th class="text-left py-3 px-4 font-semibold text-gray-700">Items</th>
                         <th class="text-left py-3 px-4 font-semibold text-gray-700">Supplier</th>
-                        <th class="text-right py-3 px-4 font-semibold text-gray-700">Jumlah</th>
-                        <th class="text-right py-3 px-4 font-semibold text-gray-700">Harga</th>
                         <th class="text-right py-3 px-4 font-semibold text-gray-700">Total</th>
                         <th class="text-center py-3 px-4 font-semibold text-gray-700">Status Bayar</th>
                         <th class="text-right py-3 px-4 font-semibold text-gray-700">Aksi</th>
@@ -73,44 +71,51 @@
                         <tr class="border-b hover:bg-gray-50">
                             <td class="py-3 px-4">{{ $transaction->transaction_date->format('d/m/Y') }}</td>
                             <td class="py-3 px-4">
-                                <div class="font-medium">{{ $transaction->product->name }}</div>
-                                <div class="text-sm text-gray-500">{{ $transaction->product->sku }}</div>
+                                <div class="font-medium">{{ $transaction->items->count() }} item(s)</div>
+                                <div class="text-sm text-gray-500">
+                                    @foreach($transaction->items->take(2) as $item)
+                                        {{ $item->product->name }}@if(!$loop->last), @endif
+                                    @endforeach
+                                    @if($transaction->items->count() > 2)
+                                        ...
+                                    @endif
+                                </div>
                             </td>
                             <td class="py-3 px-4">{{ $transaction->supplier?->name ?? '-' }}</td>
-                            <td class="py-3 px-4 text-right">{{ number_format($transaction->quantity, 0, ',', '.') }}</td>
-                            <td class="py-3 px-4 text-right">Rp {{ number_format($transaction->price, 0, ',', '.') }}</td>
                             <td class="py-3 px-4 text-right font-medium">Rp {{ number_format($transaction->total, 0, ',', '.') }}</td>
                             <td class="py-3 px-4 text-center">
                                 <span class="px-3 py-1 rounded-full text-sm font-semibold {{ $transaction->payment_status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
                                     {{ $transaction->payment_status === 'paid' ? 'Lunas' : 'Belum Lunas' }}
                                 </span>
                             </td>
-                            <td class="py-3 px-4 text-right">
-                                <button wire:click="editPayment({{ $transaction->id }})"
-                                        class="text-orange-600 hover:text-orange-800 mr-2">
-                                    💳 Bayar
-                                </button>
-                                <button wire:click="edit({{ $transaction->id }})"
-                                        class="text-blue-600 hover:text-blue-800 mr-2">
-                                    Edit
-                                </button>
-                                <button wire:click="delete({{ $transaction->id }})"
-                                        onclick="return confirm('Yakin ingin menghapus tagihan ini?')"
-                                        class="text-red-600 hover:text-red-800">
-                                    Hapus
-                                </button>
+                            <td class="py-3 px-4">
+                                <div class="flex flex-wrap gap-2 justify-end">
+                                    <button wire:click="view({{ $transaction->id }})"
+                                            class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm min-h-[44px]">
+                                        View
+                                    </button>
+                                    <button wire:click="editPayment({{ $transaction->id }})"
+                                            class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm min-h-[44px]">
+                                        💳 Bayar
+                                    </button>
+                                    <button wire:click="delete({{ $transaction->id }})"
+                                            onclick="return confirm('Yakin ingin menghapus tagihan ini? Stok akan dikembalikan.')"
+                                            class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm min-h-[44px]">
+                                        Hapus
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                         @if($transaction->notes)
                             <tr class="border-b bg-gray-50">
-                                <td colspan="8" class="py-2 px-4 text-sm text-gray-600">
+                                <td colspan="6" class="py-2 px-4 text-sm text-gray-600">
                                     <strong>Catatan:</strong> {{ $transaction->notes }}
                                 </td>
                             </tr>
                         @endif
                     @empty
                         <tr>
-                            <td colspan="8" class="py-8 text-center text-gray-500">
+                            <td colspan="6" class="py-8 text-center text-gray-500">
                                 Tidak ada data tagihan.
                             </td>
                         </tr>
@@ -123,95 +128,83 @@
         </div>
     </div>
 
-    <!-- Edit Modal -->
-    @if($showEditModal)
-        <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" wire:click="cancelEdit">
-            <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white" wire:click.stop>
+    <!-- View Modal -->
+    @if($showViewModal && $viewingTransaction)
+        <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" wire:click="closeView">
+            <div class="relative top-10 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-2/3 shadow-lg rounded-md bg-white" wire:click.stop>
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-xl font-bold text-gray-800">Edit Tagihan</h3>
-                    <button wire:click="cancelEdit" class="text-gray-600 hover:text-gray-800">
+                    <h3 class="text-xl font-bold text-gray-800">Detail Tagihan</h3>
+                    <button wire:click="closeView" class="text-gray-600 hover:text-gray-800">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
                     </button>
                 </div>
 
-                <form wire:submit.prevent="save">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Produk *</label>
-                            <select wire:model="product_id" required
-                                    class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                <option value="">Pilih Produk</option>
-                                @foreach($products as $product)
-                                    <option value="{{ $product->id }}">{{ $product->name }} ({{ $product->sku }})</option>
-                                @endforeach
-                            </select>
-                            @error('product_id') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Supplier</label>
-                            <select wire:model="supplier_id"
-                                    class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                <option value="">Pilih Supplier</option>
-                                @foreach($suppliers as $supplier)
-                                    <option value="{{ $supplier->id }}">{{ $supplier->name }}</option>
-                                @endforeach
-                            </select>
-                            @error('supplier_id') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Jumlah *</label>
-                            <input type="number" wire:model="quantity" required min="1"
-                                   class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                            @error('quantity') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Harga (Rp) *</label>
-                            <input type="number" wire:model="price" required min="0" step="0.01"
-                                   class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                            @error('price') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Status Bayar *</label>
-                            <select wire:model="payment_status" required
-                                    class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                <option value="paid">Lunas</option>
-                                <option value="unpaid">Belum Lunas</option>
-                            </select>
-                            @error('payment_status') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Tanggal Transaksi *</label>
-                            <input type="date" wire:model="transaction_date" required
-                                   class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                            @error('transaction_date') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
-                        </div>
+                <!-- Transaction Info -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 bg-gray-50 p-4 rounded-lg">
+                    <div>
+                        <p class="text-sm text-gray-600">Tanggal Transaksi</p>
+                        <p class="font-medium">{{ $viewingTransaction->transaction_date->format('d/m/Y') }}</p>
                     </div>
-
-                    <div class="mt-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Catatan</label>
-                        <textarea wire:model="notes" rows="3"
-                                  class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
-                        @error('notes') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                    <div>
+                        <p class="text-sm text-gray-600">Supplier</p>
+                        <p class="font-medium">{{ $viewingTransaction->supplier?->name ?? '-' }}</p>
                     </div>
-
-                    <div class="flex gap-2 mt-6">
-                        <button type="submit"
-                                class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium">
-                            Simpan
-                        </button>
-                        <button type="button" wire:click="cancelEdit"
-                                class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded-lg font-medium">
-                            Batal
-                        </button>
+                    <div>
+                        <p class="text-sm text-gray-600">Status Pembayaran</p>
+                        <p class="font-medium">
+                            <span class="px-3 py-1 rounded-full text-sm font-semibold {{ $viewingTransaction->payment_status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
+                                {{ $viewingTransaction->payment_status === 'paid' ? 'Lunas' : 'Belum Lunas' }}
+                            </span>
+                        </p>
                     </div>
-                </form>
+                    <div>
+                        <p class="text-sm text-gray-600">Total</p>
+                        <p class="font-bold text-lg">Rp {{ number_format($viewingTransaction->total, 0, ',', '.') }}</p>
+                    </div>
+                    @if($viewingTransaction->notes)
+                        <div class="md:col-span-2">
+                            <p class="text-sm text-gray-600">Catatan</p>
+                            <p class="font-medium">{{ $viewingTransaction->notes }}</p>
+                        </div>
+                    @endif
+                </div>
+
+                <!-- Items -->
+                <h4 class="text-lg font-bold mb-3">Items</h4>
+                <div class="overflow-x-auto mb-6">
+                    <table class="w-full border">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="text-left py-2 px-3 border-b">Produk</th>
+                                <th class="text-right py-2 px-3 border-b">Qty</th>
+                                <th class="text-right py-2 px-3 border-b">Harga</th>
+                                <th class="text-right py-2 px-3 border-b">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($viewingTransaction->items as $item)
+                                <tr class="border-b">
+                                    <td class="py-2 px-3">
+                                        <div class="font-medium">{{ $item->product->name }}</div>
+                                        <div class="text-sm text-gray-500">{{ $item->product->sku }}</div>
+                                    </td>
+                                    <td class="py-2 px-3 text-right">{{ number_format($item->quantity, 0, ',', '.') }}</td>
+                                    <td class="py-2 px-3 text-right">Rp {{ number_format($item->price, 0, ',', '.') }}</td>
+                                    <td class="py-2 px-3 text-right font-medium">Rp {{ number_format($item->subtotal, 0, ',', '.') }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="flex gap-2">
+                    <button wire:click="closeView"
+                            class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg font-medium min-h-[44px]">
+                        Tutup
+                    </button>
+                </div>
             </div>
         </div>
     @endif
@@ -242,11 +235,11 @@
 
                     <div class="flex gap-2 mt-6">
                         <button type="submit"
-                                class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium">
+                                class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium min-h-[44px]">
                             Simpan
                         </button>
                         <button type="button" wire:click="cancelPayment"
-                                class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded-lg font-medium">
+                                class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-3 rounded-lg font-medium min-h-[44px]">
                             Batal
                         </button>
                     </div>

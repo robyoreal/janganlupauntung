@@ -3,6 +3,7 @@
 namespace App\Livewire\Transactions;
 
 use App\Models\Transaction;
+use App\Models\TransactionItem;
 use App\Models\Product;
 use App\Models\Supplier;
 use Livewire\Component;
@@ -20,31 +21,13 @@ class Tagihan extends Component
     public $filterPaymentStatus = '';
 
     // Modal properties
-    public $showEditModal = false;
+    public $showViewModal = false;
     public $showPaymentModal = false;
+    public $viewingId = null;
     public $editingId = null;
 
     // Form properties
-    public $product_id;
-    public $supplier_id;
-    public $quantity;
-    public $price;
     public $payment_status;
-    public $transaction_date;
-    public $notes;
-
-    protected function rules()
-    {
-        return [
-            'product_id' => 'required|exists:products,id',
-            'supplier_id' => 'nullable|exists:suppliers,id',
-            'quantity' => 'required|integer|min:1',
-            'price' => 'required|numeric|min:0',
-            'payment_status' => 'required|in:paid,unpaid',
-            'transaction_date' => 'required|date',
-            'notes' => 'nullable|string',
-        ];
-    }
 
     public function updatingSearch()
     {
@@ -72,20 +55,16 @@ class Tagihan extends Component
         $this->resetPage();
     }
 
-    public function edit($id)
+    public function view($id)
     {
-        $transaction = Transaction::findOrFail($id);
+        $this->viewingId = $id;
+        $this->showViewModal = true;
+    }
 
-        $this->editingId = $transaction->id;
-        $this->product_id = $transaction->product_id;
-        $this->supplier_id = $transaction->supplier_id;
-        $this->quantity = $transaction->quantity;
-        $this->price = $transaction->price;
-        $this->payment_status = $transaction->payment_status;
-        $this->transaction_date = $transaction->transaction_date->format('Y-m-d');
-        $this->notes = $transaction->notes;
-
-        $this->showEditModal = true;
+    public function closeView()
+    {
+        $this->showViewModal = false;
+        $this->reset(['viewingId']);
     }
 
     public function editPayment($id)
@@ -98,49 +77,6 @@ class Tagihan extends Component
         $this->showPaymentModal = true;
     }
 
-    public function save()
-    {
-        $this->validate();
-
-        DB::transaction(function () {
-            $transaction = Transaction::findOrFail($this->editingId);
-
-            // Store old values
-            $oldQuantity = $transaction->quantity;
-            $oldPaymentStatus = $transaction->payment_status;
-            $oldPrice = $transaction->price;
-
-            // Update transaction
-            $transaction->update([
-                'product_id' => $this->product_id,
-                'supplier_id' => $this->supplier_id,
-                'quantity' => $this->quantity,
-                'price' => $this->price,
-                'total' => $this->quantity * $this->price,
-                'payment_status' => $this->payment_status,
-                'transaction_date' => $this->transaction_date,
-                'notes' => $this->notes,
-            ]);
-
-            // Update product stock if quantity changed
-            if ($oldQuantity != $this->quantity) {
-                $product = Product::find($this->product_id);
-                $stockDifference = $this->quantity - $oldQuantity;
-                $product->increment('stock', $stockDifference);
-            }
-
-            // Update cost price if payment status changed to paid or price changed
-            if (($oldPaymentStatus === 'unpaid' && $this->payment_status === 'paid') ||
-                ($this->payment_status === 'paid' && $oldPrice != $this->price)) {
-                $product = Product::find($this->product_id);
-                $product->update(['cost_price' => $this->price]);
-            }
-        });
-
-        session()->flash('message', 'Tagihan berhasil diperbarui.');
-        $this->cancelEdit();
-    }
-
     public function savePayment()
     {
         $this->validate([
@@ -148,7 +84,7 @@ class Tagihan extends Component
         ]);
 
         DB::transaction(function () {
-            $transaction = Transaction::findOrFail($this->editingId);
+            $transaction = Transaction::with('items')->findOrFail($this->editingId);
             $oldPaymentStatus = $transaction->payment_status;
 
             $transaction->update([
@@ -157,19 +93,15 @@ class Tagihan extends Component
 
             // Update cost price if status changed to paid
             if ($oldPaymentStatus === 'unpaid' && $this->payment_status === 'paid') {
-                $product = Product::find($transaction->product_id);
-                $product->update(['cost_price' => $transaction->price]);
+                foreach ($transaction->items as $item) {
+                    $product = Product::find($item->product_id);
+                    $product->update(['cost_price' => $item->price]);
+                }
             }
         });
 
         session()->flash('message', 'Status pembayaran berhasil diperbarui.');
         $this->cancelPayment();
-    }
-
-    public function cancelEdit()
-    {
-        $this->showEditModal = false;
-        $this->reset(['editingId', 'product_id', 'supplier_id', 'quantity', 'price', 'payment_status', 'transaction_date', 'notes']);
     }
 
     public function cancelPayment()
@@ -181,27 +113,29 @@ class Tagihan extends Component
     public function delete($id)
     {
         DB::transaction(function () use ($id) {
-            $transaction = Transaction::findOrFail($id);
+            $transaction = Transaction::with('items')->findOrFail($id);
 
-            // Restore product stock
-            $product = Product::find($transaction->product_id);
-            $product->decrement('stock', $transaction->quantity);
+            // Restore product stock for all items
+            foreach ($transaction->items as $item) {
+                $product = Product::find($item->product_id);
+                $product->decrement('stock', $item->quantity);
+            }
 
             $transaction->delete();
         });
 
-        session()->flash('message', 'Tagihan berhasil dihapus.');
+        session()->flash('message', 'Tagihan berhasil dihapus dan stok dikembalikan.');
     }
 
     public function render()
     {
-        $query = Transaction::with(['product', 'supplier'])
+        $query = Transaction::with(['items.product', 'supplier'])
             ->where('type', 'buy');
 
         // Apply search filter
         if ($this->search) {
             $query->where(function($q) {
-                $q->whereHas('product', function($q) {
+                $q->whereHas('items.product', function($q) {
                     $q->where('name', 'like', '%' . $this->search . '%')
                       ->orWhere('sku', 'like', '%' . $this->search . '%');
                 })
@@ -228,13 +162,15 @@ class Tagihan extends Component
             ->orderBy('id', 'desc')
             ->paginate(15);
 
-        $products = Product::orderBy('name')->get();
-        $suppliers = Supplier::orderBy('name')->get();
+        $viewingTransaction = null;
+        if ($this->viewingId) {
+            $viewingTransaction = Transaction::with(['items.product', 'supplier'])
+                ->findOrFail($this->viewingId);
+        }
 
         return view('livewire.transactions.tagihan', [
             'transactions' => $transactions,
-            'products' => $products,
-            'suppliers' => $suppliers,
+            'viewingTransaction' => $viewingTransaction,
         ])->layout('layouts.app');
     }
 }
